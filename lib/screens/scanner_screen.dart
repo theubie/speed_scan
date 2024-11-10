@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:sound_mode/utils/ringer_mode_statuses.dart';
+import 'package:vibration/vibration.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:sound_mode/sound_mode.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -11,6 +15,8 @@ class ScannerScreen extends StatefulWidget {
 class ScannerScreenState extends State<ScannerScreen> {
   late final MobileScannerController cameraController;
   Set<String> uniqueBarcodes = {}; // Set for unique barcodes
+  bool _showFlashOverlay = false; // Controls flash overlay visibility
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -22,6 +28,38 @@ class ScannerScreenState extends State<ScannerScreen> {
   void dispose() {
     cameraController.dispose();
     super.dispose();
+  }
+
+  void _giveFeedback() async {
+    // Flash overlay for visual feedback
+    setState(() {
+      _showFlashOverlay = true;
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      setState(() {
+        _showFlashOverlay = false;
+      });
+    });
+
+    RingerModeStatus ringerStatus = await SoundMode.ringerModeStatus;
+    bool? hasVibration = await Vibration.hasVibrator();
+
+    // Vibration feedback
+    if ((ringerStatus == RingerModeStatus.normal ||
+            ringerStatus == RingerModeStatus.vibrate) &&
+        hasVibration!) {
+      Vibration.vibrate(duration: 50); // Short vibration
+    }
+
+    // Sound feedback
+    if (ringerStatus == RingerModeStatus.normal) {
+      // Get our notification volume
+      _audioPlayer.play(AssetSource('beep.mp3'),
+          ctx: AudioContext(
+              android: AudioContextAndroid(
+                  usageType: AndroidUsageType
+                      .notification))); // Ensure you have this file in assets
+    }
   }
 
   @override
@@ -60,9 +98,9 @@ class ScannerScreenState extends State<ScannerScreen> {
             controller: cameraController,
             scanWindow: Rect.fromLTWH(
               0,
-              MediaQuery.of(context).size.height * 0.4, // Adjusted positioning
+              MediaQuery.of(context).size.height * 0.4,
               MediaQuery.of(context).size.width,
-              MediaQuery.of(context).size.height * 0.1, // Wide scan window
+              MediaQuery.of(context).size.height * 0.1,
             ),
             overlayBuilder: (context, constraints) {
               return Align(
@@ -80,14 +118,19 @@ class ScannerScreenState extends State<ScannerScreen> {
             },
             onDetect: (capture) {
               for (var barcode in capture.barcodes) {
-                if (barcode.rawValue != null && uniqueBarcodes.add(barcode.rawValue!)) {
+                if (barcode.rawValue != null &&
+                    uniqueBarcodes.add(barcode.rawValue!)) {
                   // Only add if unique
-                  setState(() {}); // Update the UI
+                  _giveFeedback(); // Trigger feedback
+                  setState(() {}); // Update UI
                 }
               }
             },
           ),
-          // Section for detected barcodes with background and label
+          if (_showFlashOverlay)
+            Container(
+              color: Colors.white.withOpacity(0.5), // Overlay for flash effect
+            ),
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -95,7 +138,7 @@ class ScannerScreenState extends State<ScannerScreen> {
               child: Container(
                 padding: const EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
-                  color: Colors.black54, // Semi-transparent background
+                  color: Colors.black54,
                   borderRadius: BorderRadius.circular(12.0),
                 ),
                 child: Column(
@@ -120,7 +163,7 @@ class ScannerScreenState extends State<ScannerScreen> {
                             margin: const EdgeInsets.symmetric(vertical: 4.0),
                             padding: const EdgeInsets.all(8.0),
                             decoration: BoxDecoration(
-                              color: Colors.black87, // Slightly darker for contrast
+                              color: Colors.black87,
                               borderRadius: BorderRadius.circular(8.0),
                             ),
                             child: ListTile(
@@ -132,7 +175,7 @@ class ScannerScreenState extends State<ScannerScreen> {
                                 ),
                               ),
                               onTap: () {
-                                Navigator.of(context).pop(barcodeValue); // Return selected barcode
+                                Navigator.of(context).pop(barcodeValue);
                               },
                             ),
                           );

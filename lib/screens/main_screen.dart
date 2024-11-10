@@ -6,6 +6,8 @@ import 'package:speed_scan/screens/add_edit_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,11 +18,23 @@ class MainScreen extends StatefulWidget {
 
 class MainScreenState extends State<MainScreen> {
   late Box<Equipment> _equipmentBox;
+  String _appVersion = 'Version loading...';
 
   @override
   void initState() {
     super.initState();
     _equipmentBox = Hive.box<Equipment>('equipmentBox');
+
+    // Fetch and store app version info in initState
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion =
+          'Version ${packageInfo.version} (${packageInfo.buildNumber})';
+    });
   }
 
   Future<void> _clearAllEntries() async {
@@ -158,6 +172,63 @@ class MainScreenState extends State<MainScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _shareEntries,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info),
+            onPressed: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'Speed Scan',
+                applicationVersion: _appVersion,
+                applicationLegalese: '© 2024 Creative Technology Services',
+                children: [
+                  const SizedBox(height: 8),
+                  const Text('Speed Scan is a simple equipment scanning app.'),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      Uri url = Uri.parse("https://nvcreativetechnology.com");
+
+                      if (!await launchUrl(url)) {
+                        throw 'Could not launch $url';
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8.0, horizontal: 16.0),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.link,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Visit our website',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

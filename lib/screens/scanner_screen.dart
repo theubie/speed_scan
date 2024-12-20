@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sound_mode/utils/ringer_mode_statuses.dart';
 import 'package:vibration/vibration.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:sound_mode/sound_mode.dart';
+
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -22,12 +24,29 @@ class ScannerScreenState extends State<ScannerScreen> {
   void initState() {
     super.initState();
     cameraController = MobileScannerController();
+    cameraController.start().then((_) {
+      _loadZoomLevel(); // Load zoom level from shared preferences
+    });
   }
 
   @override
   void dispose() {
     cameraController.dispose();
     super.dispose();
+  }
+
+  void _saveZoomLevel() async {
+    double currentZoom = cameraController.value.zoomScale;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setDouble('zoomLevel', currentZoom);
+  }
+
+  void _loadZoomLevel() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    double? zoomLevel = prefs.getDouble('zoomLevel');
+    if (zoomLevel != null) {
+      cameraController.setZoomScale(zoomLevel);
+    }
   }
 
   void _giveFeedback() async {
@@ -89,6 +108,26 @@ class ScannerScreenState extends State<ScannerScreen> {
               },
             ),
             onPressed: () => cameraController.toggleTorch(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_in),
+            onPressed: () {
+              double currentZoom = cameraController.value.zoomScale;
+              if (currentZoom <= 1.9) {
+                cameraController.setZoomScale(currentZoom + 0.1);
+                _saveZoomLevel(); // Save zoom level to shared preferences
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_out),
+            onPressed: () {
+              double currentZoom = cameraController.value.zoomScale;
+              if (currentZoom >= 0.1) {
+                cameraController.setZoomScale(currentZoom - 0.1);
+                _saveZoomLevel(); // Save zoom level to shared preferences
+              }
+            },
           ),
         ],
       ),
